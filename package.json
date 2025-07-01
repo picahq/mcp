@@ -1,0 +1,42 @@
+{
+  "name": "@picahq/mcp",
+  "version": "1.0.0",
+  "description": "A Model Context Protocol Server for Pica",
+  "type": "module",
+  "bin": {
+    "mcp": "./build/index.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "http": "npm run build && node build/index.js",
+    "http:dev": "npm run build && nodemon build/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@vercel/mcp-adapter": "^0.9.1",
+    "axios": "^1.10.0",
+    "cors": "^2.8.5",
+    "express": "^5.1.0",
+    "form-data": "^4.0.3",
+    "zod": "^3.23.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^22.0.0",
+    "nodemon": "^3.1.10",
+    "typescript": "^5.6.0"
+  },
+  "author": {
+    "name": "Pica",
+    "email": "support@picaos.com",
+    "url": "https://picaos.com"
+  },
+  "license": "GPL-3.0"
+}
