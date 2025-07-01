@@ -2,13 +2,13 @@
 
 [![npm version](https://img.shields.io/npm/v/%40picahq%2Fmcp)](https://npmjs.com/package/@picahq/mcp) [![smithery badge](https://smithery.ai/badge/@picahq/mcp)](https://smithery.ai/server/@picahq/mcp)
 
-<a href="https://glama.ai/mcp/servers/@picahq/mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@picahq/mcp/badge" alt="pica MCP server" />
-</a>
-
 <img src="https://assets.picaos.com/github/pica-mcp.svg" alt="Pica MCP Banner" style="border-radius: 5px;">
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that integrates with [Pica](https://picaos.com), enabling seamless interaction with various third-party services through a standardized interface. This server provides direct access to platform integrations, actions, execution capabilities, and robust code generation capabilities.
+
+<a href="https://glama.ai/mcp/servers/@picahq/mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@picahq/mcp/badge" alt="pica MCP server" />
+</a>
 
 ## Features
 
