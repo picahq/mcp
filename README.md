@@ -8,6 +8,10 @@
 
 <img src="https://assets.picaos.com/github/pica-mcp.svg" alt="Pica MCP Banner" style="border-radius: 5px;">
 
+<a href="https://glama.ai/mcp/servers/@picahq/mcp">
+  <img width="380" height="200" src="https://glama.ai/mcp/servers/@picahq/mcp/badge" alt="pica MCP server" />
+</a>
+
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that integrates with [Pica](https://picaos.com), enabling seamless interaction with various third-party services through a standardized interface. This server provides direct access to platform integrations, actions, execution capabilities, and robust code generation capabilities.
 
 ## Features
@@ -58,7 +62,6 @@ PICA_SECRET=your-pica-secret-key
 ```
 
 Get your Pica secret key from the [Pica dashboard](https://app.picaos.com/settings/api-keys).
-
 
 ## Usage
 
