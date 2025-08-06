@@ -44,6 +44,13 @@ import {
 } from './types.js';
 import { z } from 'zod';
 
+// Logger that writes to stderr (stdout is reserved for MCP JSON-RPC)
+const log = (message: string) => {
+  if (process.env.DEBUG === 'true') {
+    process.stderr.write(`[${new Date().toISOString()}] ${message}\n`);
+  }
+};
+
 const SERVER_NAME = "pica-mcp-server";
 const SERVER_VERSION = "1.0.0";
 
@@ -72,7 +79,7 @@ const initializePica = async () => {
     try {
       await picaClient.initialize();
       picaInitialized = true;
-      console.log("Pica client initialized successfully");
+      log("Pica client initialized successfully");
     } catch (error) {
       console.error("Failed to initialize Pica client:", error);
       initializationPromise = null;
@@ -241,12 +248,9 @@ async function main() {
   try {
     const transport = new StdioServerTransport();
     await server.connect(transport);
-    console.log("Pica MCP server running on stdio");
 
-    if (process.env.DEBUG === 'true') {
-      console.error("Debug mode enabled");
-      console.error(`PICA_BASE_URL: ${PICA_BASE_URL}`);
-    }
+    log("Pica MCP server running on stdio");
+    log(`PICA_BASE_URL: ${PICA_BASE_URL}`);
   } catch (error) {
     console.error("Failed to start server:", error);
     process.exit(1);
