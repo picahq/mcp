@@ -36,11 +36,8 @@ export class PicaClient {
    */
   async initialize(): Promise<void> {
     if (this.isInitialized) {
-      console.log("Pica client already initialized");
       return;
     }
-
-    console.log("Initializing Pica client...");
 
     const results = await Promise.allSettled([
       this.fetchConnections(),
@@ -60,7 +57,6 @@ export class PicaClient {
     }
 
     this.isInitialized = true;
-    console.log(`Pica client initialized with ${this.connections.length} connections and ${this.connectors.length} available connectors`);
   }
 
   /**
@@ -314,11 +310,9 @@ export class PicaClient {
    * Refreshes connections and connectors data
    */
   async refresh(): Promise<void> {
-    console.log("Refreshing Pica client data...");
     await Promise.allSettled([
       this.fetchConnections(),
       this.fetchConnectionDefinitions(),
     ]);
-    console.log("Pica client data refreshed");
   }
 }
