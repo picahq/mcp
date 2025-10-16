@@ -9,7 +9,16 @@
 
 import axios, { AxiosResponse } from 'axios';
 import FormData from 'form-data';
-import { Connection, ConnectionDefinition, AvailableAction, GetPicaActionKnowledgeResponse, ExecutePicaActionArgs, RequestConfig, ExecutePassthroughResponse } from './types.js';
+import {
+  Connection,
+  ConnectionDefinition,
+  AvailableAction,
+  ActionDetails,
+  GetPicaActionKnowledgeResponse,
+  ExecutePicaActionArgs,
+  RequestConfig,
+  ExecutePassthroughResponse
+} from './types.js';
 import { fetchPaginatedData, replacePathVariables } from './helpers.js';
 
 /**
@@ -100,41 +109,61 @@ export class PicaClient {
   }
 
   /**
-   * Gets available actions for a specific platform
-   * @param platform - The platform name to get actions for
-   * @returns Array of available actions for the platform
-   * @throws {Error} If platform is not provided or API request fails
+   * Searches for actions on a specific platform using a query
+   * @param platform - The platform name to search actions for
+   * @param query - The search query to find relevant actions
+   * @param agentType - The type of agent context (execute or knowledge)
+   * @returns Array of top 5 most relevant actions for the platform
+   * @throws {Error} If platform or query is not provided or API request fails
    */
-  async getAvailableActions(platform: string): Promise<AvailableAction[]> {
+  async searchAvailableActions(platform: string, query: string, agentType?: "execute" | "knowledge"): Promise<AvailableAction[]> {
     if (!platform?.trim()) {
       throw new Error("Platform name is required");
+    }
+    if (!query?.trim()) {
+      throw new Error("Search query is required");
     }
 
     try {
       const headers = this.generateHeaders();
-      const url = `${this.baseUrl}/v1/knowledge`;
-      const additionalParams = {
-        supported: true,
-        connectionPlatform: platform
+      const url = `${this.baseUrl}/v1/available-actions/search/${platform}`;
+
+      // Default to knowledgeAgent if not specified
+      const isKnowledgeAgent = !agentType || agentType === "knowledge";
+
+      const params: Record<string, string> = {
+        query,
+        limit: '5'
       };
 
-      return await fetchPaginatedData<AvailableAction>(url, headers, additionalParams);
-    } catch (error) {
-      console.error("Error fetching available actions:", error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(`Failed to fetch available actions: ${error.response?.status} ${error.response?.statusText}`);
+      if (isKnowledgeAgent) {
+        params.knowledgeAgent = 'true';
+      } else {
+        params.executeAgent = 'true';
       }
-      throw new Error("Failed to fetch available actions");
+
+      const response: AxiosResponse<AvailableAction[]> = await axios.get(url, {
+        headers,
+        params
+      });
+
+      return response.data || [];
+    } catch (error) {
+      console.error("Error searching available actions:", error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Failed to search available actions: ${error.response?.status} ${error.response?.statusText}`);
+      }
+      throw new Error("Failed to search available actions");
     }
   }
 
   /**
-   * Gets knowledge for a specific action by ID
-   * @param actionId - The action ID to get knowledge for
-   * @returns The knowledge string for the action
+   * Gets full action details by ID
+   * @param actionId - The action ID to get details for
+   * @returns The full action object
    * @throws {Error} If action ID is not provided or API request fails
    */
-  async getActionKnowledge(actionId: string): Promise<GetPicaActionKnowledgeResponse> {
+  async getActionDetails(actionId: string): Promise<ActionDetails> {
     if (!actionId?.trim()) {
       throw new Error("Action ID is required");
     }
@@ -146,14 +175,38 @@ export class PicaClient {
         _id: actionId
       };
 
-      const response: AxiosResponse<{ rows: AvailableAction[] }> = await axios.get(url, {
+      const response: AxiosResponse<{ rows: ActionDetails[] }> = await axios.get(url, {
         headers,
         params
       });
 
       const actions = response.data?.rows || [];
 
-      if (actions.length === 0 || !actions[0].knowledge || !actions[0].method) {
+      if (actions.length === 0) {
+        throw new Error(`Action with ID ${actionId} not found`);
+      }
+
+      return actions[0];
+    } catch (error) {
+      console.error("Error fetching action details:", error);
+      if (axios.isAxiosError(error)) {
+        throw new Error(`Failed to fetch action details: ${error.response?.status} ${error.response?.statusText}`);
+      }
+      throw new Error("Failed to fetch action details");
+    }
+  }
+
+  /**
+   * Gets knowledge for a specific action by ID
+   * @param actionId - The action ID to get knowledge for
+   * @returns The knowledge string for the action
+   * @throws {Error} If action ID is not provided or API request fails
+   */
+  async getActionKnowledge(actionId: string): Promise<GetPicaActionKnowledgeResponse> {
+    try {
+      const action = await this.getActionDetails(actionId);
+
+      if (!action.knowledge || !action.method) {
         return {
           knowledge: "No knowledge was found",
           method: "No method was found"
@@ -161,15 +214,12 @@ export class PicaClient {
       }
 
       return {
-        knowledge: actions[0].knowledge,
-        method: actions[0].method
+        knowledge: action.knowledge,
+        method: action.method
       };
     } catch (error) {
       console.error("Error fetching action knowledge:", error);
-      if (axios.isAxiosError(error)) {
-        throw new Error(`Failed to fetch action knowledge: ${error.response?.status} ${error.response?.statusText}`);
-      }
-      throw new Error("Failed to fetch action knowledge");
+      throw error;
     }
   }
 
@@ -181,7 +231,7 @@ export class PicaClient {
    */
   async executePassthroughRequest(args: ExecutePicaActionArgs): Promise<ExecutePassthroughResponse> {
     const {
-      action,
+      actionId,
       connectionKey,
       data,
       pathVariables,
@@ -190,6 +240,9 @@ export class PicaClient {
       isFormData,
       isFormUrlEncoded,
     } = args;
+
+    // Fetch action details
+    const action = await this.getActionDetails(actionId);
 
     const method = action.method;
     const contentType = isFormData ? 'multipart/form-data' : isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json';
@@ -209,6 +262,16 @@ export class PicaClient {
     const normalizedPath = finalActionPath.startsWith('/') ? finalActionPath : `/${finalActionPath}`;
     const url = `${this.baseUrl}/v1/passthrough${normalizedPath}`;
 
+    // Check if action has "custom" tag and add connectionKey to body if needed
+    const isCustomAction = action.tags?.includes('custom');
+    let requestData = data;
+    if (isCustomAction && method?.toLowerCase() !== 'get') {
+      requestData = {
+        ...data,
+        connectionKey
+      };
+    }
+
     const requestConfig: RequestConfig = {
       url,
       method,
@@ -220,8 +283,8 @@ export class PicaClient {
       if (isFormData) {
         const formData = new FormData();
 
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          Object.entries(data).forEach(([key, value]) => {
+        if (requestData && typeof requestData === 'object' && !Array.isArray(requestData)) {
+          Object.entries(requestData).forEach(([key, value]) => {
             if (typeof value === 'object') {
               formData.append(key, JSON.stringify(value));
             } else {
@@ -235,8 +298,8 @@ export class PicaClient {
       } else if (isFormUrlEncoded) {
         const params = new URLSearchParams();
 
-        if (data && typeof data === 'object' && !Array.isArray(data)) {
-          Object.entries(data).forEach(([key, value]) => {
+        if (requestData && typeof requestData === 'object' && !Array.isArray(requestData)) {
+          Object.entries(requestData).forEach(([key, value]) => {
             if (typeof value === 'object') {
               params.append(key, JSON.stringify(value));
             } else {
@@ -247,7 +310,7 @@ export class PicaClient {
 
         requestConfig.data = params;
       } else {
-        requestConfig.data = data;
+        requestConfig.data = requestData;
       }
     }
 

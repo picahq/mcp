@@ -47,15 +47,27 @@ export interface Connection {
 }
 
 /**
- * Available action/operation that can be performed on a connection
+ * Available action from search endpoint (uses systemId)
  */
 export interface AvailableAction {
+  systemId: string;
+  title: string;
+  tags?: string[];
+  knowledge?: string;
+  path: string;
+  method: string;
+}
+
+/**
+ * Action details from knowledge endpoint (uses _id)
+ */
+export interface ActionDetails {
   _id: string;
   title: string;
   tags?: string[];
   knowledge?: string;
-  path?: string;
-  method?: string;
+  path: string;
+  method: string;
 }
 
 /**
@@ -64,17 +76,19 @@ export interface AvailableAction {
 export interface ListPicaIntegrationsArgs { }
 
 /**
- * Arguments for get_pica_platform_actions tool
+ * Arguments for search_pica_platform_actions tool
  */
-export interface GetPicaPlatformActionsArgs {
+export interface SearchPicaPlatformActionsArgs {
   platform: string;
+  query: string;
+  agentType?: "execute" | "knowledge";
 }
 
 /**
  * Arguments for get_pica_action_knowledge tool
  */
 export interface GetPicaActionKnowledgeArgs {
-  action_id: string;
+  actionId: string;
   platform: string;
 }
 
@@ -93,6 +107,7 @@ export interface ActionObject {
   _id: string;
   path: string;
   method: string;
+  tags?: string[];
 }
 
 /**
@@ -100,7 +115,7 @@ export interface ActionObject {
  */
 export interface ExecutePicaActionArgs {
   platform: string;
-  action: ActionObject;
+  actionId: string;
   connectionKey: string;
   data?: any,
   pathVariables?: Record<string, string | number | boolean>,
@@ -138,4 +153,42 @@ export interface SanitizedRequestConfig {
 export interface ExecutePassthroughResponse {
   requestConfig: SanitizedRequestConfig;
   responseData: unknown;
+}
+
+/**
+ * Structured response for list_pica_integrations tool
+ */
+export interface ListIntegrationsResponse {
+  [x: string]: unknown;
+  connections: Array<{
+    platform: string;
+    key: string;
+  }>;
+  availablePlatforms: Array<{
+    platform: string;
+    name: string;
+    category: string;
+  }>;
+  summary: {
+    connectedCount: number;
+    availableCount: number;
+  };
+}
+
+/**
+ * Structured response for search_pica_platform_actions tool
+ */
+export interface SearchActionsResponse {
+  [x: string]: unknown;
+  actions: Array<{
+    actionId: string;
+    title: string;
+    method: string;
+    path: string;
+  }>;
+  metadata: {
+    platform: string;
+    query: string;
+    count: number;
+  };
 }
