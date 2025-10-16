@@ -16,17 +16,19 @@ import { z } from 'zod';
 export const listPicaIntegrationsInputSchema = {};
 
 /**
- * Schema for getting platform actions
+ * Schema for searching platform actions
  */
-export const getPicaPlatformActionsInputSchema = {
-    platform: z.string().describe("The platform name to get available actions for (e.g., 'ship-station', 'shopify'). This is the kebab-case version of the platform name that comes from the list_pica_integrations tool AVAILABLE PLATFORMS section.")
+export const searchPicaPlatformActionsInputSchema = {
+    platform: z.string().describe("The platform name to search actions for (e.g., 'ship-station', 'shopify'). This is the kebab-case version of the platform name that comes from the list_pica_integrations tool AVAILABLE PLATFORMS section."),
+    query: z.string().describe("The search query to find relevant actions (e.g., 'search contacts', 'create customer', 'send email'). Be specific about what you want to do."),
+    agentType: z.enum(["execute", "knowledge"]).optional().describe("The type of agent context: 'execute' if the user wants to execute an action, 'knowledge' if they want to get information or write code. Defaults to 'knowledge' if not specified.")
 };
 
 /**
  * Schema for getting action knowledge
  */
 export const getPicaActionKnowledgeInputSchema = {
-    action_id: z.string().describe("The action ID to get knowledge for (from the actions list returned by get_pica_platform_actions). REQUIRED: This tool must be called before create_pica_request to load the action's documentation into context."),
+    actionId: z.string().describe("The action ID to get knowledge for (from the actions list returned by search_pica_platform_actions). REQUIRED: This tool must be called before execute_pica_action to load the action's documentation into context."),
     platform: z.string().describe("The platform name to get knowledge for (e.g., 'ship-station', 'shopify'). This is the kebab-case version of the platform name that comes from the list_pica_integrations tool AVAILABLE PLATFORMS section.")
 };
 
@@ -35,11 +37,7 @@ export const getPicaActionKnowledgeInputSchema = {
  */
 export const executePicaActionInputSchema = {
     platform: z.string().describe("Platform name"),
-    action: z.object({
-        _id: z.string().describe("Action ID"),
-        path: z.string().describe("Action path template with variables"),
-        method: z.string().describe("HTTP method (GET, POST, PUT, DELETE, etc.)")
-    }).describe("Action object with ID, path, and method"),
+    actionId: z.string().describe("Action ID from search_pica_platform_actions"),
     connectionKey: z.string().describe("Key of the connection to use"),
     data: z.any().optional().describe("Request data (for POST, PUT, etc.)"),
     pathVariables: z.record(z.union([z.string(), z.number(), z.boolean()])).optional().describe("Variables to replace in the path"),
@@ -50,18 +48,56 @@ export const executePicaActionInputSchema = {
 };
 
 /**
+ * Output schemas for list_pica_integrations tool
+ */
+export const listPicaIntegrationsOutputSchema = {
+    connections: z.array(z.object({
+        platform: z.string(),
+        key: z.string()
+    })).describe("Array of user's active connections"),
+    availablePlatforms: z.array(z.object({
+        platform: z.string(),
+        name: z.string(),
+        category: z.string()
+    })).describe("Array of available platforms that can be connected"),
+    summary: z.object({
+        connectedCount: z.number(),
+        availableCount: z.number()
+    }).describe("Summary statistics of connections and available platforms")
+};
+
+/**
+ * Output schemas for search_pica_platform_actions tool
+ */
+export const searchPicaPlatformActionsOutputSchema = {
+    actions: z.array(z.object({
+        actionId: z.string().describe("Unique identifier for the action"),
+        title: z.string().describe("Human-readable action name"),
+        method: z.string().describe("HTTP method (GET, POST, etc.)"),
+        path: z.string().describe("API endpoint path")
+    })).describe("Array of matching actions (max 5)"),
+    metadata: z.object({
+        platform: z.string().describe("Platform that was searched"),
+        query: z.string().describe("Search query used"),
+        count: z.number().describe("Number of results returned")
+    }).describe("Metadata about the search results")
+};
+
+/**
  * Tool configuration objects for registerTool
  */
 export const listPicaIntegrationsToolConfig = {
     title: "List Pica Integrations",
     description: "List all available Pica integrations and platforms. ALWAYS call this tool first in any workflow to discover what platforms and connections are available. This returns the connections that the user has and all available Pica platforms in kebab-case format (e.g., 'ship-station', 'shopify') which you'll need for subsequent tool calls.",
-    inputSchema: listPicaIntegrationsInputSchema
+    inputSchema: listPicaIntegrationsInputSchema,
+    outputSchema: listPicaIntegrationsOutputSchema
 };
 
-export const getPicaPlatformActionsToolConfig = {
-    title: "Get Platform Actions",
-    description: "Get all available actions for a specific platform. Call this after list_pica_integrations to discover what actions are possible on a platform. Use the exact kebab-case platform name from the integrations list. This shows you what actions are available for that platform's API.",
-    inputSchema: getPicaPlatformActionsInputSchema
+export const searchPicaPlatformActionsToolConfig = {
+    title: "Search Platform Actions",
+    description: "Search for relevant actions on a specific platform using a query. Call this after list_pica_integrations to find actions that match your intent. Returns the top 5 most relevant actions based on your search query. Use the exact kebab-case platform name from the integrations list.",
+    inputSchema: searchPicaPlatformActionsInputSchema,
+    outputSchema: searchPicaPlatformActionsOutputSchema
 };
 
 export const getPicaActionKnowledgeToolConfig = {
@@ -80,34 +116,6 @@ export const executePicaActionToolConfig = {
  * Zod object schemas for type inference (for internal use)
  */
 export const listPicaIntegrationsZodSchema = z.object(listPicaIntegrationsInputSchema);
-export const getPicaPlatformActionsZodSchema = z.object(getPicaPlatformActionsInputSchema);
+export const searchPicaPlatformActionsZodSchema = z.object(searchPicaPlatformActionsInputSchema);
 export const getPicaActionKnowledgeZodSchema = z.object(getPicaActionKnowledgeInputSchema);
 export const executePicaActionZodSchema = z.object(executePicaActionInputSchema);
-
-/**
- * Legacy exports for backward compatibility
- * @deprecated Use the new tool config exports instead
- */
-export const listPicaIntegrationsToolSchema = {
-    name: "list_pica_integrations",
-    description: listPicaIntegrationsToolConfig.description,
-    inputSchema: listPicaIntegrationsZodSchema,
-} as const;
-
-export const getPicaPlatformActionsToolSchema = {
-    name: "get_pica_platform_actions",
-    description: getPicaPlatformActionsToolConfig.description,
-    inputSchema: getPicaPlatformActionsZodSchema,
-} as const;
-
-export const getPicaActionKnowledgeToolSchema = {
-    name: "get_pica_action_knowledge",
-    description: getPicaActionKnowledgeToolConfig.description,
-    inputSchema: getPicaActionKnowledgeZodSchema,
-} as const;
-
-export const executePicaActionToolSchema = {
-    name: "execute_pica_action",
-    description: executePicaActionToolConfig.description,
-    inputSchema: executePicaActionZodSchema,
-} as const; 

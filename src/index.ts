@@ -17,30 +17,25 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { PicaClient } from './client.js';
 import {
-  formatConnectionsInfo,
-  formatAvailablePlatformsInfo,
-  buildIntegrationsStatusMessage,
-  formatAvailableActionsInfo,
-  buildAvailableActionsMessage,
-  buildPicaApiConnectorsDocumentation,
-  buildPicaApiActionsDocumentation,
   buildActionKnowledgeWithGuidance,
 } from './helpers.js';
 import {
   listPicaIntegrationsToolConfig,
-  getPicaPlatformActionsToolConfig,
+  searchPicaPlatformActionsToolConfig,
   getPicaActionKnowledgeToolConfig,
   executePicaActionToolConfig,
   listPicaIntegrationsZodSchema,
-  getPicaPlatformActionsZodSchema,
+  searchPicaPlatformActionsZodSchema,
   getPicaActionKnowledgeZodSchema,
   executePicaActionZodSchema
 } from './schemas.js';
 import {
   ListPicaIntegrationsArgs,
-  GetPicaPlatformActionsArgs,
+  SearchPicaPlatformActionsArgs,
   GetPicaActionKnowledgeArgs,
-  ExecutePicaActionArgs
+  ExecutePicaActionArgs,
+  ListIntegrationsResponse,
+  SearchActionsResponse
 } from './types.js';
 import { z } from 'zod';
 
@@ -99,11 +94,11 @@ server.registerTool(
 );
 
 server.registerTool(
-  "get_pica_platform_actions",
-  getPicaPlatformActionsToolConfig,
-  async (args: z.infer<typeof getPicaPlatformActionsZodSchema>) => {
+  "search_pica_platform_actions",
+  searchPicaPlatformActionsToolConfig,
+  async (args: z.infer<typeof searchPicaPlatformActionsZodSchema>) => {
     await initializePica();
-    return await handleGetPlatformActions(args as GetPicaPlatformActionsArgs);
+    return await handleSearchPlatformActions(args as SearchPicaPlatformActionsArgs);
   }
 );
 
@@ -130,28 +125,33 @@ async function handleGetIntegrations(args: ListPicaIntegrationsArgs) {
     const connectedIntegrations = picaClient.getUserConnections();
     const availableIntegrations = picaClient.getAvailableConnectors();
 
-    const connectionsInfo = formatConnectionsInfo(connectedIntegrations);
-    const availablePlatformsInfo = formatAvailablePlatformsInfo(availableIntegrations);
-    const activeAvailableCount = availableIntegrations.filter(def => def.active && !def.deprecated).length;
+    const activeConnections = connectedIntegrations.filter(conn => conn.active);
+    const activePlatforms = availableIntegrations.filter(def => def.active && !def.deprecated);
 
-    const statusMessage = buildIntegrationsStatusMessage(
-      connectionsInfo,
-      availablePlatformsInfo,
-      connectedIntegrations.length,
-      activeAvailableCount
-    );
-
-    const apiDocumentation = buildPicaApiConnectorsDocumentation(picaClient.getBaseUrl());
-
-    const fullResponse = `${statusMessage}\n\n---\n\n${apiDocumentation}`;
+    const structuredResponse: ListIntegrationsResponse = {
+      connections: activeConnections.map(conn => ({
+        platform: conn.platform,
+        key: conn.key
+      })),
+      availablePlatforms: activePlatforms.map(def => ({
+        platform: def.platform,
+        name: def.name,
+        category: def.category
+      })),
+      summary: {
+        connectedCount: activeConnections.length,
+        availableCount: activePlatforms.length
+      }
+    };
 
     return {
       content: [
         {
           type: "text" as const,
-          text: fullResponse,
+          text: JSON.stringify(structuredResponse, null, 2),
         },
       ],
+      structuredContent: structuredResponse,
     };
   } catch (error) {
     throw new McpError(
@@ -161,35 +161,78 @@ async function handleGetIntegrations(args: ListPicaIntegrationsArgs) {
   }
 }
 
-async function handleGetPlatformActions(args: GetPicaPlatformActionsArgs) {
+async function handleSearchPlatformActions(args: SearchPicaPlatformActionsArgs) {
   try {
-    const actions = await picaClient.getAvailableActions(args.platform);
-    const actionsInfo = formatAvailableActionsInfo(actions, args.platform);
-    const statusMessage = buildAvailableActionsMessage(actionsInfo, args.platform, actions.length);
+    const actions = await picaClient.searchAvailableActions(args.platform, args.query, args.agentType);
 
-    const apiDocumentation = buildPicaApiActionsDocumentation(picaClient.getBaseUrl(), args.platform);
+    const cleanedActions = actions.map(action => ({
+      actionId: action.systemId,
+      title: action.title,
+      method: action.method,
+      path: action.path
+    }));
 
-    const fullResponse = `${statusMessage}\n\n---\n\n${apiDocumentation}`;
+    // Handle empty results with helpful suggestions
+    if (cleanedActions.length === 0) {
+      const suggestionsText = `No actions found for platform '${args.platform}' matching query '${args.query}'.
+
+SUGGESTIONS:
+- Try a more general query (e.g., 'list', 'get', 'search', 'create')
+- Verify the platform name is correct
+- Check that actions exist for this platform using list_pica_integrations
+
+EXAMPLES OF GOOD QUERIES:
+- "search contacts"
+- "send email"
+- "create customer"
+- "list orders"`;
+
+      return {
+        content: [
+          {
+            type: "text" as const,
+            text: suggestionsText,
+          },
+        ],
+      };
+    }
+
+    // Build structured response
+    const structuredResponse: SearchActionsResponse = {
+      actions: cleanedActions,
+      metadata: {
+        platform: args.platform,
+        query: args.query,
+        count: cleanedActions.length
+      }
+    };
+
+    const responseText = `Found ${cleanedActions.length} action(s) for platform '${args.platform}' matching query '${args.query}':
+
+${JSON.stringify(structuredResponse, null, 2)}
+
+NEXT STEP: Use get_pica_action_knowledge with an actionId to get detailed documentation before building requests or executing actions.`;
 
     return {
       content: [
         {
           type: "text" as const,
-          text: fullResponse,
+          text: responseText,
         },
       ],
+      structuredContent: structuredResponse,
     };
   } catch (error) {
     throw new McpError(
       ErrorCode.InternalError,
-      `Failed to retrieve platform actions: ${error instanceof Error ? error.message : 'Unknown error'}`
+      `Failed to search platform actions: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
 }
 
 async function handleGetActionKnowledge(args: GetPicaActionKnowledgeArgs) {
   try {
-    const actionId = args.action_id;
+    const actionId = args.actionId;
     const { knowledge, method } = await picaClient.getActionKnowledge(actionId);
 
     const knowledgeWithGuidance = buildActionKnowledgeWithGuidance(

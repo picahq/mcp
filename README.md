@@ -6,15 +6,11 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that integrates with [Pica](https://picaos.com), enabling seamless interaction with various third-party services through a standardized interface. This server provides direct access to platform integrations, actions, execution capabilities, and robust code generation capabilities.
 
-<a href="https://glama.ai/mcp/servers/@picahq/mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@picahq/mcp/badge" alt="pica MCP server" />
-</a>
-
 ## Features
 
 ### 🔧 Tools
 - **list_pica_integrations** - List all available platforms and your active connections
-- **get_pica_platform_actions** - Get available actions for a specific platform
+- **search_pica_platform_actions** - Search for available actions for a specific platform
 - **get_pica_action_knowledge** - Get detailed documentation for a specific action including parameters and usage
 - **execute_pica_action** - Execute API actions with full parameter support
 
@@ -107,6 +103,10 @@ In the Cursor menu, select "MCP Settings" and update the MCP JSON file to includ
 }
 ```
 
+### Using the Remote MCP Server
+
+The remote MCP server is available at [https://mcp.picaos.com](https://mcp.picaos.com).
+
 ### Using Docker
 
 Build the Docker Image:
@@ -186,27 +186,33 @@ List all available Pica integrations and platforms. Always call this tool first 
 **Parameters:** None
 
 **Returns:**
-- Connected integrations grouped by platform
-- Available platforms with descriptions
-- Summary statistics
-- Management links
+- `connections`: Array of active user connections with platform and key
+- `availablePlatforms`: Array of active platforms with name and category
+- `summary`: Statistics including connected and available counts
 
-#### `get_pica_platform_actions`
-Get all available actions for a specific platform.
+#### `search_pica_platform_actions`
+Search for relevant actions on a specific platform using a query. Returns the top 5 most relevant actions based on vector similarity search.
 
 **Parameters:**
 - `platform` (string, required): Platform name in kebab-case format (e.g., 'ship-station', 'shopify')
+- `query` (string, required): Search query describing what you want to do (e.g., 'search contacts', 'create invoice', 'send email')
+- `agentType` (enum, optional): Agent context type - either `"execute"` or `"knowledge"`. Defaults to `"knowledge"` if not specified
+  - Use `"execute"` when the user wants to perform an action
+  - Use `"knowledge"` when the user wants to get information or write code
 
 **Returns:**
-- List of available actions with IDs and titles
-- Platform-specific action count
-- Next steps guidance
+- `actions`: Array of up to 5 most relevant actions, each with:
+  - `actionId`: Unique identifier for the action
+  - `title`: Human-readable action name
+  - `method`: HTTP method (GET, POST, etc.)
+  - `path`: API endpoint path
+- `metadata`: Search metadata with platform, query, and result count
 
 #### `get_pica_action_knowledge`
 Get comprehensive documentation for a specific action. **Must be called before execute_pica_action** to understand requirements.
 
 **Parameters:**
-- `action_id` (string, required): Action ID from get_pica_platform_actions
+- `actionId` (string, required): Action ID from search_pica_platform_actions
 - `platform` (string, required): Platform name in kebab-case format
 
 **Returns:**
@@ -220,7 +226,7 @@ Execute a Pica action to perform operations on third-party platforms. **Critical
 
 **Parameters:**
 - `platform` (string, required): Platform name
-- `action` (object, required): Action object with `_id`, `path`, and `method`
+- `actionId` (string, required): Action ID from search_pica_platform_actions
 - `connectionKey` (string, required): Connection key for the platform
 - `data` (object, optional): Request body data
 - `pathVariables` (object, optional): Variables to replace in the path
