@@ -121,14 +121,6 @@ Run the Docker Container:
 docker run -e PICA_SECRET=your_pica_secret_key pica-mcp-server
 ```
 
-### Installing via Smithery
-
-To install pica for Claude Desktop automatically via [Smithery](https://smithery.ai/server/@picahq/mcp):
-
-```bash
-npx -y @smithery/cli install @picahq/mcp --client claude
-```
-
 ## Deploy to Vercel
 
 You can deploy this MCP server to Vercel for remote access:
@@ -262,7 +254,7 @@ The server implements comprehensive error handling:
 
 ## License
 
-GPL-3.0
+MIT
 
 ## Support
 
