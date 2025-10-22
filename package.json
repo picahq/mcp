@@ -1,6 +1,6 @@
 {
   "name": "@picahq/mcp",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "description": "A Model Context Protocol Server for Pica",
   "type": "module",
   "bin": {
@@ -38,5 +38,6 @@
     "email": "support@picaos.com",
     "url": "https://picaos.com"
   },
-  "license": "GPL-3.0"
+  "license": "GPL-3.0",
+  "mcpName": "com.picaos/mcp"
 }
