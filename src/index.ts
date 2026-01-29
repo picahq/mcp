@@ -49,7 +49,15 @@ if (!PICA_SECRET) {
 }
 
 const PICA_BASE_URL = process.env.PICA_BASE_URL || "https://api.picaos.com";
-const picaClient = new PicaClient(PICA_SECRET, PICA_BASE_URL);
+const PICA_IDENTITY = process.env.PICA_IDENTITY;
+const PICA_IDENTITY_TYPE = process.env.PICA_IDENTITY_TYPE as 'user' | 'team' | 'organization' | 'project' | undefined;
+
+const picaClient = new PicaClient({
+  secret: PICA_SECRET,
+  baseUrl: PICA_BASE_URL,
+  identity: PICA_IDENTITY,
+  identityType: PICA_IDENTITY_TYPE,
+});
 
 let picaInitialized = false;
 let initializationPromise: Promise<void> | null = null;

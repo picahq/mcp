@@ -21,22 +21,47 @@ import {
 } from './types.js';
 import { fetchPaginatedData, replacePathVariables } from './helpers.js';
 
+export type IdentityType = 'user' | 'team' | 'organization' | 'project';
+
+export interface PicaClientOptions {
+  secret: string;
+  baseUrl?: string;
+  identity?: string;
+  identityType?: IdentityType;
+}
+
 /**
  * Client for interacting with the Pica API
  */
 export class PicaClient {
   private readonly secret: string;
   private readonly baseUrl: string;
+  private readonly identity?: string;
+  private readonly identityType?: IdentityType;
   private connections: Connection[] = [];
   private connectors: ConnectionDefinition[] = [];
   private isInitialized = false;
 
-  constructor(secret: string, baseUrl = "https://api.picaos.com") {
-    if (!secret?.trim()) {
-      throw new Error("Pica secret is required and cannot be empty");
+  constructor(options: PicaClientOptions);
+  constructor(secret: string, baseUrl?: string);
+  constructor(optionsOrSecret: PicaClientOptions | string, baseUrl = "https://api.picaos.com") {
+    if (typeof optionsOrSecret === 'string') {
+      // Legacy constructor: (secret, baseUrl)
+      if (!optionsOrSecret?.trim()) {
+        throw new Error("Pica secret is required and cannot be empty");
+      }
+      this.secret = optionsOrSecret;
+      this.baseUrl = baseUrl.replace(/\/$/, '');
+    } else {
+      // New constructor: (options)
+      if (!optionsOrSecret.secret?.trim()) {
+        throw new Error("Pica secret is required and cannot be empty");
+      }
+      this.secret = optionsOrSecret.secret;
+      this.baseUrl = (optionsOrSecret.baseUrl || "https://api.picaos.com").replace(/\/$/, '');
+      this.identity = optionsOrSecret.identity;
+      this.identityType = optionsOrSecret.identityType;
     }
-    this.secret = secret;
-    this.baseUrl = baseUrl.replace(/\/$/, '');
   }
 
   /**
@@ -85,7 +110,20 @@ export class PicaClient {
     try {
       const headers = this.generateHeaders();
       const url = `${this.baseUrl}/v1/vault/connections`;
-      this.connections = await fetchPaginatedData<Connection>(url, headers);
+
+      const additionalParams: Record<string, string> = {};
+      if (this.identity) {
+        additionalParams.identity = this.identity;
+      }
+      if (this.identityType) {
+        additionalParams.identityType = this.identityType;
+      }
+
+      this.connections = await fetchPaginatedData<Connection>(
+        url,
+        headers,
+        Object.keys(additionalParams).length > 0 ? additionalParams : undefined
+      );
     } catch (error) {
       console.error("Failed to fetch connections:", error);
       this.connections = [];
