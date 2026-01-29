@@ -1,6 +1,6 @@
 # Pica MCP Server
 
-[![npm version](https://img.shields.io/npm/v/%40picahq%2Fmcp)](https://npmjs.com/package/@picahq/mcp) [![smithery badge](https://smithery.ai/badge/@picahq/mcp)](https://smithery.ai/server/@picahq/mcp)
+[![npm version](https://img.shields.io/npm/v/%40picahq%2Fmcp)](https://npmjs.com/package/@picahq/mcp)
 
 <img src="https://assets.picaos.com/github/mcp.svg" alt="Pica MCP Banner" style="border-radius: 5px;">
 
@@ -17,7 +17,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that in
 ## Key Capabilities
 
 ### 🔌 **Platform Integration**
-- Connect to 100+ platforms through Pica
+- Connect to 200+ platforms through Pica
 - Manage multiple connections per platform
 - Access real-time connection status
 
@@ -49,11 +49,29 @@ npm install @picahq/mcp
 ```
 
 ## Setup
+
+### Required
 ```bash
 PICA_SECRET=your-pica-secret-key
 ```
 
 Get your Pica secret key from the [Pica dashboard](https://app.picaos.com/settings/api-keys).
+
+### Optional: Identity Scoping
+
+You can scope connections to a specific identity (e.g., a user, team, or organization) by setting these optional environment variables:
+
+```bash
+PICA_IDENTITY=user_123
+PICA_IDENTITY_TYPE=user
+```
+
+| Variable | Description | Values |
+|----------|-------------|--------|
+| `PICA_IDENTITY` | The identifier for the entity (e.g., user ID, team ID) | Any string |
+| `PICA_IDENTITY_TYPE` | The type of identity | `user`, `team`, `organization`, `project` |
+
+When set, the MCP server will only return connections associated with the specified identity. This is useful for multi-tenant applications where you want to scope integrations to specific users or entities.
 
 ## Usage
 
@@ -78,12 +96,16 @@ On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
       "command": "npx",
       "args": ["@picahq/mcp"],
       "env": {
-        "PICA_SECRET": "your-pica-secret-key"
+        "PICA_SECRET": "your-pica-secret-key",
+        "PICA_IDENTITY": "user_123",
+        "PICA_IDENTITY_TYPE": "user"
       }
     }
   }
 }
 ```
+
+> **Note:** `PICA_IDENTITY` and `PICA_IDENTITY_TYPE` are optional. Only include them if you want to scope connections to a specific identity.
 
 ### In Cursor
 
@@ -96,12 +118,16 @@ In the Cursor menu, select "MCP Settings" and update the MCP JSON file to includ
       "command": "npx",
       "args": ["@picahq/mcp"],
       "env": {
-        "PICA_SECRET": "your-pica-secret-key"
+        "PICA_SECRET": "your-pica-secret-key",
+        "PICA_IDENTITY": "user_123",
+        "PICA_IDENTITY_TYPE": "user"
       }
     }
   }
 }
 ```
+
+> **Note:** `PICA_IDENTITY` and `PICA_IDENTITY_TYPE` are optional. Only include them if you want to scope connections to a specific identity.
 
 ### Using the Remote MCP Server
 
@@ -118,8 +144,13 @@ docker build -t pica-mcp-server .
 Run the Docker Container:
 
 ```bash
-docker run -e PICA_SECRET=your_pica_secret_key pica-mcp-server
+docker run -e PICA_SECRET=your_pica_secret_key \
+  -e PICA_IDENTITY=user_123 \
+  -e PICA_IDENTITY_TYPE=user \
+  pica-mcp-server
 ```
+
+> **Note:** `PICA_IDENTITY` and `PICA_IDENTITY_TYPE` are optional.
 
 ## Deploy to Vercel
 
@@ -244,7 +275,8 @@ The server implements comprehensive error handling:
 
 ## Security
 
-- 🔐 Single environment variable required: `PICA_SECRET`
+- 🔐 Required environment variable: `PICA_SECRET`
+- 🔐 Optional environment variables: `PICA_IDENTITY`, `PICA_IDENTITY_TYPE`
 - 🛡️ All requests authenticated through Pica's secure proxy
 - 🔒 No direct platform API key management needed
 - 🚫 Secrets never exposed in responses
