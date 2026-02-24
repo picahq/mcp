@@ -11,6 +11,18 @@ startCommand:
       picaSecret:
         type: string
         description: Your Pica API secret key to authenticate requests
+      permissions:
+        type: string
+        description: "Permission level: read, write, or admin (default: admin)"
+      connectionKeys:
+        type: string
+        description: "Comma-separated connection keys, or * for all (default: *)"
+      actionIds:
+        type: string
+        description: "Comma-separated action IDs, or * for all (default: *)"
+      knowledgeAgent:
+        type: string
+        description: "Set to true to enable knowledge-only mode (default: false)"
   commandFunction:
     # A JS function that produces the CLI command based on the given config to start the MCP on stdio.
     |-
@@ -18,7 +30,11 @@ startCommand:
       command: 'node',
       args: ['build/index.js'],
       env: {
-        PICA_SECRET: config.picaSecret
+        PICA_SECRET: config.picaSecret,
+        ...(config.permissions ? { PICA_PERMISSIONS: config.permissions } : {}),
+        ...(config.connectionKeys ? { PICA_CONNECTION_KEYS: config.connectionKeys } : {}),
+        ...(config.actionIds ? { PICA_ACTION_IDS: config.actionIds } : {}),
+        ...(config.knowledgeAgent ? { PICA_KNOWLEDGE_AGENT: config.knowledgeAgent } : {})
       }
     })
   exampleConfig:
