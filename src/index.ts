@@ -168,7 +168,8 @@ async function handleGetIntegrations(args: ListPicaIntegrationsArgs) {
     const structuredResponse: ListIntegrationsResponse = {
       connections: activeConnections.map(conn => ({
         platform: conn.platform,
-        key: conn.key
+        key: conn.key,
+        tags: conn.tags ?? []
       })),
       availablePlatforms: activePlatforms.map(def => ({
         platform: def.platform,
