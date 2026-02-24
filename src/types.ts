@@ -43,6 +43,7 @@ export interface ConnectionDefinition {
 export interface Connection {
   key: string;
   platform: string;
+  tags: string[];
   active: boolean;
 }
 
@@ -163,6 +164,7 @@ export interface ListIntegrationsResponse {
   connections: Array<{
     platform: string;
     key: string;
+    tags: string[];
   }>;
   availablePlatforms: Array<{
     platform: string;

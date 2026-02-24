@@ -53,7 +53,8 @@ export const executePicaActionInputSchema = {
 export const listPicaIntegrationsOutputSchema = {
     connections: z.array(z.object({
         platform: z.string(),
-        key: z.string()
+        key: z.string(),
+        tags: z.array(z.string())
     })).describe("Array of user's active connections"),
     availablePlatforms: z.array(z.object({
         platform: z.string(),
