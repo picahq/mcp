@@ -8,7 +8,7 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that in
 
 ## Features
 
-### 🔧 Tools
+### Tools
 - **list_pica_integrations** - List all available platforms and your active connections
 - **search_pica_platform_actions** - Search for available actions for a specific platform
 - **get_pica_action_knowledge** - Get detailed documentation for a specific action including parameters and usage
@@ -16,46 +16,51 @@ A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that in
 
 ## Key Capabilities
 
-### 🔌 **Platform Integration**
+### Platform Integration
 - Connect to 200+ platforms through Pica
 - Manage multiple connections per platform
-- Access real-time connection status
+- Real-time connection status and discovery
 
-### 🎯 **Smart Intent Detection**
-- Execute actions immediately (e.g. "read my last gmail email", "send a message to the slack channel #general")
-- Generate integration code (e.g. "build a form to send emails using gmail", "create a UI for messaging")
-- Intelligent context handling
+### Smart Intent Detection
+- Execute actions directly from natural language (e.g. "read my last gmail email", "send a message to the slack channel #general")
+- Generate integration code from prompts (e.g. "build a form to send emails using gmail", "create a UI for messaging")
+- Automatically distinguishes between execution and code generation intent
 
-### 🔒 **Enhanced Security**
-- Never exposes secrets in generated code
-- Uses environment variables: `PICA_SECRET`, `PICA_[PLATFORM]_CONNECTION_KEY`
-- Sanitized request configurations for production use
-
-### ⚡ **Direct Execution**
-- Execute actions directly through the MCP interface
+### Direct Execution
 - Support for all HTTP methods (GET, POST, PUT, DELETE, etc.)
 - Handle form data, URL encoding, and JSON payloads
-- Pass path variables, query parameters, and custom headers
+- Path variable substitution, query parameters, and custom headers
 
-### 🔒 **Secure Authentication**
-- All requests authenticated through Pica's secure proxy
-- No need to manage individual platform API keys
-- Environment variable configuration for security
+### Security
+- All requests authenticated and proxied through Pica; no platform API keys to manage
+- Secrets never exposed in responses or generated code
+- Request configurations sanitized before returning to clients
+- Fine-grained access control via permission levels, connection key scoping, and action allowlisting
 
-## Installation
+## Getting Started
+
+The fastest way to get up and running is with the [Pica CLI](https://www.npmjs.com/package/@picahq/cli). It handles API key configuration and MCP installation for your agent or editor of choice.
+
+```bash
+npm install -g @picahq/cli
+pica init
+```
+
+`pica init` will prompt you for your API key (get one from the [Pica dashboard](https://app.picaos.com/settings/api-keys)) and walk you through configuring the MCP server for your environment (Claude Desktop, Cursor, Claude Code, etc.).
+
+### Manual Installation
+
+If you prefer to configure the server manually, install the package directly:
 
 ```bash
 npm install @picahq/mcp
 ```
 
-## Setup
+Then set the required environment variable:
 
-### Required
 ```bash
 PICA_SECRET=your-pica-secret-key
 ```
-
-Get your Pica secret key from the [Pica dashboard](https://app.picaos.com/settings/api-keys).
 
 ### Optional: Identity Scoping
 
@@ -73,20 +78,39 @@ PICA_IDENTITY_TYPE=user
 
 When set, the MCP server will only return connections associated with the specified identity. This is useful for multi-tenant applications where you want to scope integrations to specific users or entities.
 
-## Usage
+### Optional: Access Control
 
-### As a Standalone Server
+Fine-tune what the MCP server can see and do by setting these optional environment variables:
+
+```bash
+PICA_PERMISSIONS=read
+PICA_CONNECTION_KEYS=conn_key_1,conn_key_2
+PICA_ACTION_IDS=action_id_1,action_id_2
+PICA_KNOWLEDGE_AGENT=true
+```
+
+| Variable | Type | Default | Description |
+|---|---|---|---|
+| `PICA_PERMISSIONS` | `read` \| `write` \| `admin` | `admin` | Filter actions by HTTP method. `read` = GET only, `write` = GET/POST/PUT/PATCH, `admin` = all methods |
+| `PICA_CONNECTION_KEYS` | `*` or comma-separated keys | `*` | Restrict visible connections and platforms to specific connection keys |
+| `PICA_ACTION_IDS` | `*` or comma-separated IDs | `*` | Restrict visible and executable actions to specific action IDs |
+| `PICA_KNOWLEDGE_AGENT` | `true` \| `false` | `false` | Remove the `execute_pica_action` tool entirely, forcing knowledge-only mode |
+
+All defaults preserve current behavior. If no access control env vars are set, the server starts with full access and all tools available.
+
+## Manual Configuration
+
+If you used `pica init`, the configuration below is already done for you. These examples are for reference or manual setups.
+
+### Standalone
 
 ```bash
 npx @picahq/mcp
 ```
 
-### In Claude Desktop
-
-To use with [Claude Desktop](https://claude.ai/download), add the server config:
+### Claude Desktop
 
 On MacOS: `~/Library/Application\ Support/Claude/claude_desktop_config.json`
-
 On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
 
 ```json
@@ -96,20 +120,16 @@ On Windows: `%APPDATA%/Claude/claude_desktop_config.json`
       "command": "npx",
       "args": ["@picahq/mcp"],
       "env": {
-        "PICA_SECRET": "your-pica-secret-key",
-        "PICA_IDENTITY": "user_123",
-        "PICA_IDENTITY_TYPE": "user"
+        "PICA_SECRET": "your-pica-secret-key"
       }
     }
   }
 }
 ```
 
-> **Note:** `PICA_IDENTITY` and `PICA_IDENTITY_TYPE` are optional. Only include them if you want to scope connections to a specific identity.
+### Cursor
 
-### In Cursor
-
-In the Cursor menu, select "MCP Settings" and update the MCP JSON file to include the following:
+In the Cursor menu, select "MCP Settings" and add the following:
 
 ```json
 {
@@ -118,63 +138,29 @@ In the Cursor menu, select "MCP Settings" and update the MCP JSON file to includ
       "command": "npx",
       "args": ["@picahq/mcp"],
       "env": {
-        "PICA_SECRET": "your-pica-secret-key",
-        "PICA_IDENTITY": "user_123",
-        "PICA_IDENTITY_TYPE": "user"
+        "PICA_SECRET": "your-pica-secret-key"
       }
     }
   }
 }
 ```
 
-> **Note:** `PICA_IDENTITY` and `PICA_IDENTITY_TYPE` are optional. Only include them if you want to scope connections to a specific identity.
-
-### Using the Remote MCP Server
+### Remote MCP Server
 
 The remote MCP server is available at [https://mcp.picaos.com](https://mcp.picaos.com).
 
-### Using Docker
-
-Build the Docker Image:
+### Docker
 
 ```bash
 docker build -t pica-mcp-server .
+docker run -e PICA_SECRET=your_pica_secret_key pica-mcp-server
 ```
 
-Run the Docker Container:
-
-```bash
-docker run -e PICA_SECRET=your_pica_secret_key \
-  -e PICA_IDENTITY=user_123 \
-  -e PICA_IDENTITY_TYPE=user \
-  pica-mcp-server
-```
-
-> **Note:** `PICA_IDENTITY` and `PICA_IDENTITY_TYPE` are optional.
-
-## Deploy to Vercel
-
-You can deploy this MCP server to Vercel for remote access:
-
-1. Install dependencies including Vercel adapter:
-   ```bash
-   npm install @vercel/mcp-adapter zod
-   ```
-
-2. Deploy to Vercel:
-   ```bash
-   vercel
-   ```
-
-3. Configure your MCP client to use the remote server:
-   - **For Cursor**: `https://your-project.vercel.app/api/mcp`
-   - **For Claude/Cline**: Use `npx mcp-remote https://your-project.vercel.app/api/mcp`
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Vercel deployment instructions.
+All environment variables listed in the [Setup](#getting-started) section can be passed as `-e` flags.
 
 ## Examples for Inspiration
 
-### 📋 **Integration Code Generation**
+### Integration Code Generation
 
 **Build Email Form:**
 > "Create me a React form component that can send emails using Gmail using Pica"
@@ -188,7 +174,7 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Vercel deployment instructions
 **Slack Integration:**
 > "Create a page with a form that can post messages to multiple Slack channels with message scheduling using Pica"
 
-### 🚀 **Direct Action Execution**
+### Direct Action Execution
 
 **Gmail Example:**
 > "Get my last 5 emails from Gmail using Pica"
@@ -199,90 +185,15 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed Vercel deployment instructions
 **Shopify Example:**
 > "Get all products from my Shopify store using Pica"
 
-## API Reference
-
-### Tools
-
-#### `list_pica_integrations`
-List all available Pica integrations and platforms. Always call this tool first to discover available platforms and connections.
-
-**Parameters:** None
-
-**Returns:**
-- `connections`: Array of active user connections with platform and key
-- `availablePlatforms`: Array of active platforms with name and category
-- `summary`: Statistics including connected and available counts
-
-#### `search_pica_platform_actions`
-Search for relevant actions on a specific platform using a query. Returns the top 5 most relevant actions based on vector similarity search.
-
-**Parameters:**
-- `platform` (string, required): Platform name in kebab-case format (e.g., 'ship-station', 'shopify')
-- `query` (string, required): Search query describing what you want to do (e.g., 'search contacts', 'create invoice', 'send email')
-- `agentType` (enum, optional): Agent context type - either `"execute"` or `"knowledge"`. Defaults to `"knowledge"` if not specified
-  - Use `"execute"` when the user wants to perform an action
-  - Use `"knowledge"` when the user wants to get information or write code
-
-**Returns:**
-- `actions`: Array of up to 5 most relevant actions, each with:
-  - `actionId`: Unique identifier for the action
-  - `title`: Human-readable action name
-  - `method`: HTTP method (GET, POST, etc.)
-  - `path`: API endpoint path
-- `metadata`: Search metadata with platform, query, and result count
-
-#### `get_pica_action_knowledge`
-Get comprehensive documentation for a specific action. **Must be called before execute_pica_action** to understand requirements.
-
-**Parameters:**
-- `actionId` (string, required): Action ID from search_pica_platform_actions
-- `platform` (string, required): Platform name in kebab-case format
-
-**Returns:**
-- Detailed action documentation
-- Parameter requirements and structure
-- API-specific guidance and caveats
-- Usage examples and implementation notes
-
-#### `execute_pica_action`
-Execute a Pica action to perform operations on third-party platforms. **Critical:** Only call this when the user wants to execute an action, not when building applications.
-
-**Parameters:**
-- `platform` (string, required): Platform name
-- `actionId` (string, required): Action ID from search_pica_platform_actions
-- `connectionKey` (string, required): Connection key for the platform
-- `data` (object, optional): Request body data
-- `pathVariables` (object, optional): Variables to replace in the path
-- `queryParams` (object, optional): Query parameters
-- `headers` (object, optional): Additional headers
-- `isFormData` (boolean, optional): Send as multipart/form-data
-- `isFormUrlEncoded` (boolean, optional): Send as URL-encoded form data
-
-**Returns:**
-- `requestConfig`: Sanitized request configuration
-- `responseData`: Actual API response from the platform
-
 ## Error Handling
 
-The server implements comprehensive error handling:
-
-- ✅ Parameter validation for all tools
-- ✅ Connection verification before execution
-- ✅ Path variable validation and substitution
-- ✅ Graceful handling of API failures
-- ✅ Detailed error messages for debugging
-- ✅ MCP-compliant error responses
+All tool inputs are validated against Zod schemas before execution. Path variables are checked for completeness; missing or empty values throw descriptive errors rather than producing malformed requests. API failures from upstream platforms are caught and returned as structured MCP error responses with actionable messages. The server never surfaces raw stack traces to clients.
 
 ## Security
 
-- 🔐 Required environment variable: `PICA_SECRET`
-- 🔐 Optional environment variables: `PICA_IDENTITY`, `PICA_IDENTITY_TYPE`
-- 🛡️ All requests authenticated through Pica's secure proxy
-- 🔒 No direct platform API key management needed
-- 🚫 Secrets never exposed in responses
-- ✅ Request configurations sanitized
-- 🔍 Sensitive data filtered from logs
-- 🛡️ Input validation and sanitization
+All requests to third-party platforms are authenticated and proxied through Pica's API. The MCP server never handles OAuth tokens or platform API keys directly. The `PICA_SECRET` key is the sole credential required, and it is automatically redacted from all response payloads returned to clients. Sensitive headers are stripped from logged and returned request configurations.
+
+For fine-grained control, the server supports permission levels (`PICA_PERMISSIONS`), connection key scoping (`PICA_CONNECTION_KEYS`), action allowlisting (`PICA_ACTION_IDS`), and a knowledge-only mode (`PICA_KNOWLEDGE_AGENT`) that removes execution capabilities entirely. See the [Access Control](#optional-access-control) section above for details.
 
 ## License
 

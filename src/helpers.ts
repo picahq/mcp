@@ -7,7 +7,7 @@
  * @author Pica
  */
 
-import { PaginatedResponse } from './types.js';
+import { PaginatedResponse, PermissionLevel } from './types.js';
 import axios, { AxiosResponse } from 'axios';
 
 /**
@@ -157,4 +157,35 @@ export function replacePathVariables(path: string, variables: Record<string, str
   });
 
   return result;
+}
+
+const PERMISSION_METHODS: Record<PermissionLevel, string[] | null> = {
+  read: ["GET"],
+  write: ["GET", "POST", "PUT", "PATCH"],
+  admin: null,
+};
+
+export function filterByPermissions<T extends { method: string }>(
+  actions: T[],
+  permissions: PermissionLevel
+): T[] {
+  const allowed = PERMISSION_METHODS[permissions];
+  if (allowed === null) return actions;
+  return actions.filter((a) => allowed.includes(a.method.toUpperCase()));
+}
+
+export function isMethodAllowed(
+  method: string,
+  permissions: PermissionLevel
+): boolean {
+  const allowed = PERMISSION_METHODS[permissions];
+  if (allowed === null) return true;
+  return allowed.includes(method.toUpperCase());
+}
+
+export function isActionAllowed(
+  actionId: string,
+  allowedActionIds: string[]
+): boolean {
+  return allowedActionIds.includes("*") || allowedActionIds.includes(actionId);
 }

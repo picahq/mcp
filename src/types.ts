@@ -192,3 +192,5 @@ export interface SearchActionsResponse {
     count: number;
   };
 }
+
+export type PermissionLevel = "read" | "write" | "admin";

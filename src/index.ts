@@ -18,6 +18,9 @@ import {
 import { PicaClient } from './client.js';
 import {
   buildActionKnowledgeWithGuidance,
+  filterByPermissions,
+  isMethodAllowed,
+  isActionAllowed,
 } from './helpers.js';
 import {
   listPicaIntegrationsToolConfig,
@@ -35,7 +38,8 @@ import {
   GetPicaActionKnowledgeArgs,
   ExecutePicaActionArgs,
   ListIntegrationsResponse,
-  SearchActionsResponse
+  SearchActionsResponse,
+  PermissionLevel
 } from './types.js';
 import { z } from 'zod';
 
@@ -52,11 +56,28 @@ const PICA_BASE_URL = process.env.PICA_BASE_URL || "https://api.picaos.com";
 const PICA_IDENTITY = process.env.PICA_IDENTITY;
 const PICA_IDENTITY_TYPE = process.env.PICA_IDENTITY_TYPE as 'user' | 'team' | 'organization' | 'project' | undefined;
 
+const PICA_PERMISSIONS: PermissionLevel = (process.env.PICA_PERMISSIONS as PermissionLevel) || "admin";
+if (!["read", "write", "admin"].includes(PICA_PERMISSIONS)) {
+  console.error(`Invalid PICA_PERMISSIONS value: "${PICA_PERMISSIONS}". Must be one of: read, write, admin`);
+  process.exit(1);
+}
+
+const PICA_CONNECTION_KEYS: string[] = process.env.PICA_CONNECTION_KEYS
+  ? process.env.PICA_CONNECTION_KEYS.split(",").map(s => s.trim()).filter(Boolean)
+  : ["*"];
+
+const PICA_ACTION_IDS: string[] = process.env.PICA_ACTION_IDS
+  ? process.env.PICA_ACTION_IDS.split(",").map(s => s.trim()).filter(Boolean)
+  : ["*"];
+
+const PICA_KNOWLEDGE_AGENT: boolean = process.env.PICA_KNOWLEDGE_AGENT === "true";
+
 const picaClient = new PicaClient({
   secret: PICA_SECRET,
   baseUrl: PICA_BASE_URL,
   identity: PICA_IDENTITY,
   identityType: PICA_IDENTITY_TYPE,
+  connectionKeys: PICA_CONNECTION_KEYS,
 });
 
 let picaInitialized = false;
@@ -119,14 +140,16 @@ server.registerTool(
   }
 );
 
-server.registerTool(
-  "execute_pica_action",
-  executePicaActionToolConfig,
-  async (args: z.infer<typeof executePicaActionZodSchema>) => {
-    await initializePica();
-    return await handleExecutePicaAction(args as ExecutePicaActionArgs);
-  }
-);
+if (!PICA_KNOWLEDGE_AGENT) {
+  server.registerTool(
+    "execute_pica_action",
+    executePicaActionToolConfig,
+    async (args: z.infer<typeof executePicaActionZodSchema>) => {
+      await initializePica();
+      return await handleExecutePicaAction(args as ExecutePicaActionArgs);
+    }
+  );
+}
 
 async function handleGetIntegrations(args: ListPicaIntegrationsArgs) {
   try {
@@ -134,7 +157,13 @@ async function handleGetIntegrations(args: ListPicaIntegrationsArgs) {
     const availableIntegrations = picaClient.getAvailableConnectors();
 
     const activeConnections = connectedIntegrations.filter(conn => conn.active);
-    const activePlatforms = availableIntegrations.filter(def => def.active && !def.deprecated);
+    let activePlatforms = availableIntegrations.filter(def => def.active && !def.deprecated);
+
+    // When connection keys are scoped, only show platforms that match active connections
+    if (!PICA_CONNECTION_KEYS.includes("*")) {
+      const connectedPlatforms = new Set(activeConnections.map(conn => conn.platform));
+      activePlatforms = activePlatforms.filter(def => connectedPlatforms.has(def.platform));
+    }
 
     const structuredResponse: ListIntegrationsResponse = {
       connections: activeConnections.map(conn => ({
@@ -171,7 +200,15 @@ async function handleGetIntegrations(args: ListPicaIntegrationsArgs) {
 
 async function handleSearchPlatformActions(args: SearchPicaPlatformActionsArgs) {
   try {
-    const actions = await picaClient.searchAvailableActions(args.platform, args.query, args.agentType);
+    // Force knowledge mode when PICA_KNOWLEDGE_AGENT is enabled
+    const agentType = PICA_KNOWLEDGE_AGENT ? "knowledge" : args.agentType;
+    let actions = await picaClient.searchAvailableActions(args.platform, args.query, agentType);
+
+    // Apply permission-level filtering
+    actions = filterByPermissions(actions, PICA_PERMISSIONS);
+
+    // Apply action allowlist filtering
+    actions = actions.filter(a => isActionAllowed(a.systemId, PICA_ACTION_IDS));
 
     const cleanedActions = actions.map(action => ({
       actionId: action.systemId,
@@ -241,6 +278,13 @@ NEXT STEP: Use get_pica_action_knowledge with an actionId to get detailed docume
 async function handleGetActionKnowledge(args: GetPicaActionKnowledgeArgs) {
   try {
     const actionId = args.actionId;
+
+    if (!isActionAllowed(actionId, PICA_ACTION_IDS)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `Action "${actionId}" is not in the allowed action list`
+      );
+    }
     const { knowledge, method } = await picaClient.getActionKnowledge(actionId);
 
     const knowledgeWithGuidance = buildActionKnowledgeWithGuidance(
@@ -269,7 +313,23 @@ async function handleGetActionKnowledge(args: GetPicaActionKnowledgeArgs) {
 
 async function handleExecutePicaAction(args: ExecutePicaActionArgs) {
   try {
-    const result = await picaClient.executePassthroughRequest(args);
+    if (!isActionAllowed(args.actionId, PICA_ACTION_IDS)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `Action "${args.actionId}" is not in the allowed action list`
+      );
+    }
+
+    const actionDetails = await picaClient.getActionDetails(args.actionId);
+
+    if (!isMethodAllowed(actionDetails.method, PICA_PERMISSIONS)) {
+      throw new McpError(
+        ErrorCode.InvalidRequest,
+        `Method "${actionDetails.method}" is not allowed under "${PICA_PERMISSIONS}" permission level`
+      );
+    }
+
+    const result = await picaClient.executePassthroughRequest(args, actionDetails);
 
     return {
       content: [

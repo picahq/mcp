@@ -28,6 +28,7 @@ export interface PicaClientOptions {
   baseUrl?: string;
   identity?: string;
   identityType?: IdentityType;
+  connectionKeys?: string[];
 }
 
 /**
@@ -38,6 +39,7 @@ export class PicaClient {
   private readonly baseUrl: string;
   private readonly identity?: string;
   private readonly identityType?: IdentityType;
+  private readonly connectionKeys?: string[];
   private connections: Connection[] = [];
   private connectors: ConnectionDefinition[] = [];
   private isInitialized = false;
@@ -61,6 +63,7 @@ export class PicaClient {
       this.baseUrl = (optionsOrSecret.baseUrl || "https://api.picaos.com").replace(/\/$/, '');
       this.identity = optionsOrSecret.identity;
       this.identityType = optionsOrSecret.identityType;
+      this.connectionKeys = optionsOrSecret.connectionKeys;
     }
   }
 
@@ -108,6 +111,12 @@ export class PicaClient {
    */
   private async fetchConnections(): Promise<void> {
     try {
+      // If connectionKeys is set, not ["*"], and empty → no connections
+      if (this.connectionKeys && !this.connectionKeys.includes("*") && this.connectionKeys.length === 0) {
+        this.connections = [];
+        return;
+      }
+
       const headers = this.generateHeaders();
       const url = `${this.baseUrl}/v1/vault/connections`;
 
@@ -117,6 +126,9 @@ export class PicaClient {
       }
       if (this.identityType) {
         additionalParams.identityType = this.identityType;
+      }
+      if (this.connectionKeys && !this.connectionKeys.includes("*")) {
+        additionalParams.keys = this.connectionKeys.join(",");
       }
 
       this.connections = await fetchPaginatedData<Connection>(
@@ -267,7 +279,7 @@ export class PicaClient {
    * @returns Object containing sanitized request config and response data
    * @throws {Error} If the request fails
    */
-  async executePassthroughRequest(args: ExecutePicaActionArgs): Promise<ExecutePassthroughResponse> {
+  async executePassthroughRequest(args: ExecutePicaActionArgs, preloadedAction?: ActionDetails): Promise<ExecutePassthroughResponse> {
     const {
       actionId,
       connectionKey,
@@ -279,8 +291,8 @@ export class PicaClient {
       isFormUrlEncoded,
     } = args;
 
-    // Fetch action details
-    const action = await this.getActionDetails(actionId);
+    // Use preloaded action or fetch action details
+    const action = preloadedAction ?? await this.getActionDetails(actionId);
 
     const method = action.method;
     const contentType = isFormData ? 'multipart/form-data' : isFormUrlEncoded ? 'application/x-www-form-urlencoded' : 'application/json';
