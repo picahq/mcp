@@ -13,7 +13,7 @@
 export interface PaginatedResponse<T> {
   rows: T[];
   total: number;
-  skip: number;
+  page: number;
   limit: number;
 }
 

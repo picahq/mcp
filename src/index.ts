@@ -286,6 +286,17 @@ async function handleGetActionKnowledge(args: GetPicaActionKnowledgeArgs) {
         `Action "${actionId}" is not in the allowed action list`
       );
     }
+
+    if (!PICA_CONNECTION_KEYS.includes("*")) {
+      const connectedPlatforms = picaClient.getUserConnections().map(c => c.platform);
+      if (!connectedPlatforms.includes(args.platform)) {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Platform "${args.platform}" has no allowed connections`
+        );
+      }
+    }
+
     const { knowledge, method } = await picaClient.getActionKnowledge(actionId);
 
     const knowledgeWithGuidance = buildActionKnowledgeWithGuidance(
@@ -319,6 +330,16 @@ async function handleExecutePicaAction(args: ExecutePicaActionArgs) {
         ErrorCode.InvalidRequest,
         `Action "${args.actionId}" is not in the allowed action list`
       );
+    }
+
+    if (!PICA_CONNECTION_KEYS.includes("*")) {
+      const allowedKeys = picaClient.getUserConnections().map(c => c.key);
+      if (!allowedKeys.includes(args.connectionKey)) {
+        throw new McpError(
+          ErrorCode.InvalidRequest,
+          `Connection key "${args.connectionKey}" is not allowed`
+        );
+      }
     }
 
     const actionDetails = await picaClient.getActionDetails(args.actionId);
