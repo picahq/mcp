@@ -128,7 +128,7 @@ export class PicaClient {
         additionalParams.identityType = this.identityType;
       }
       if (this.connectionKeys && !this.connectionKeys.includes("*")) {
-        additionalParams.keys = this.connectionKeys.join(",");
+        additionalParams.key = this.connectionKeys.join(",");
       }
 
       this.connections = await fetchPaginatedData<Connection>(
