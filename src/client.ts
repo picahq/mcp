@@ -312,12 +312,16 @@ export class PicaClient {
     const normalizedPath = finalActionPath.startsWith('/') ? finalActionPath : `/${finalActionPath}`;
     const url = `${this.baseUrl}/v1/passthrough${normalizedPath}`;
 
+    let requestData = data;
+    if (typeof requestData === 'string') {
+      try { requestData = JSON.parse(requestData); } catch {}
+    }
+
     // Check if action has "custom" tag and add connectionKey to body if needed
     const isCustomAction = action.tags?.includes('custom');
-    let requestData = data;
     if (isCustomAction && method?.toLowerCase() !== 'get') {
       requestData = {
-        ...data,
+        ...requestData,
         connectionKey
       };
     }
