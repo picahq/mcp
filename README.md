@@ -6,6 +6,10 @@
 
 A [Model Context Protocol (MCP)](https://modelcontextprotocol.io) server that integrates with [Pica](https://picaos.com), enabling seamless interaction with various third-party services through a standardized interface. This server provides direct access to platform integrations, actions, execution capabilities, and robust code generation capabilities.
 
+## Hosted deployment
+
+A hosted deployment is available on [Fronteir AI](https://fronteir.ai/mcp/picahq-mcp).
+
 ## Features
 
 ### Tools
